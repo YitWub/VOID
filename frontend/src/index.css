@@ -2639,6 +2639,73 @@
     min-height: 48px;
     font-size: 12px;
   }
+
+  /* 작업 분야 선택 시 철거 시점 경고 팝업 */
+  .warning-dialog {
+    animation: dialog-in 0.22s ease-out;
+  }
+  .warning-dialog > .primary-button {
+    margin-top: 16px;
+  }
+  .warning-basis {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .warning-basis > div {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 10px;
+    align-items: start;
+    padding: 12px 13px;
+    background: var(--brand-soft);
+    border-radius: 13px;
+  }
+  .warning-basis dt {
+    color: var(--brand-strong);
+    font-size: 11px;
+    font-weight: 750;
+    line-height: 1.5;
+  }
+  .warning-basis dd {
+    display: grid;
+    gap: 2px;
+    color: var(--brand-ink);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  .warning-basis small {
+    color: var(--brand-muted);
+    font-size: 10px;
+    font-weight: 500;
+  }
+  .warning-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    color: #66727d;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .warning-check input {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    flex: 0 0 auto;
+    border-radius: 5px;
+    accent-color: var(--brand);
+    cursor: pointer;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -46%);
+  }
 }
 
 @keyframes screen-in {
