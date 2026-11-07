@@ -1,0 +1,842 @@
+<title>다시가동</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* styles.css — 다시가동
+   휴대폰 우선 단일 컬럼. 상단 고정 바 + 탭, 카드는 '할 일'에만 쓴다.
+   규칙 하나당 한 줄로 둔다 — 선언을 세로로 풀면 파일이 3배가 되고
+   제출용 단일 파일에 그대로 인라인되기 때문이다. 대신 섹션으로 나눴다. */
+
+
+/* ══ 1. 색 토큰 ════════════════════════════════════════════════
+   ⚠️ 다크 팔레트는 두 곳에서 켜진다 — 기기 설정(prefers-color-scheme)과
+   발표용 수동 고정(data-theme="dark"). 두 블록에 같은 값을 두 번 쓰면
+   한쪽만 고치는 사고가 나므로, 값은 --d-* 에 한 번만 적고 둘은 그걸 가져다 쓴다.
+   색을 바꿀 때 건드릴 곳: 라이트는 :root, 다크는 --d-* 뿐이다. */
+:root{
+  --bg:#f3f4f2; --surface:#ffffff; --ink:#1d2320; --muted:#5f6a64; --line:#d9ddd8;
+  --ember:#c4471a; --ember-soft:#fbe7dd; --ok:#2f7a4f; --ok-soft:#e1f1e6; --warn:#9a6a00; --warn-soft:#fbf0d4;
+
+  /* 다크 팔레트 원본 (여기만 고치면 된다) */
+  --d-bg:#151917; --d-surface:#1e2420; --d-ink:#e7ebe8; --d-muted:#9aa59f; --d-line:#323a35;
+  --d-ember:#ff7a45; --d-ember-soft:#3a2219; --d-ok:#6fcf97; --d-ok-soft:#1d3326; --d-warn:#e8b84a; --d-warn-soft:#3a3018;
+
+  --body:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+/* 기기가 다크일 때. 단 사용자가 '밝은 화면'으로 고정했으면 적용하지 않는다. */
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:var(--d-bg); --surface:var(--d-surface); --ink:var(--d-ink); --muted:var(--d-muted); --line:var(--d-line);
+  --ember:var(--d-ember); --ember-soft:var(--d-ember-soft); --ok:var(--d-ok); --ok-soft:var(--d-ok-soft);
+  --warn:var(--d-warn); --warn-soft:var(--d-warn-soft); color-scheme:dark}}
+/* 발표용 수동 고정 (화면 모드 버튼) */
+:root[data-theme="dark"]{
+  --bg:var(--d-bg); --surface:var(--d-surface); --ink:var(--d-ink); --muted:var(--d-muted); --line:var(--d-line);
+  --ember:var(--d-ember); --ember-soft:var(--d-ember-soft); --ok:var(--d-ok); --ok-soft:var(--d-ok-soft);
+  --warn:var(--d-warn); --warn-soft:var(--d-warn-soft); color-scheme:dark}
+
+
+/* ══ 2. 바탕과 레이아웃 ════════════════════════════════════════ */
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6;margin:0}
+/* 노치 영역이 스크롤 내용으로 비치지 않게 덮는다 */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{padding-block:20px 48px}
+
+
+/* ══ 3. 상단 바와 탭 ═══════════════════════════════════════════ */
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-block:14px 6px}
+.brand{font-weight:700;font-size:20px;letter-spacing:-.3px}
+.brand b{color:var(--ember)}
+.case{font-family:var(--mono);font-size:12px;color:var(--muted);text-align:right}
+nav{display:flex;gap:4px;overflow-x:auto;padding-block:4px 0;scrollbar-width:none}
+nav a{flex:0 0 auto;padding:8px 12px;font-size:14px;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;font-weight:500}
+nav a[aria-current="page"]{color:var(--ink);border-color:var(--ember)}
+nav a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+
+
+/* ══ 4. 글 ════════════════════════════════════════════════════ */
+h1{font-size:24px;line-height:1.3;margin:0 0 6px;text-wrap:balance;letter-spacing:-.4px}
+h2{font-size:17px;margin:28px 0 10px;text-wrap:balance}
+.lead{color:var(--muted);margin:0 0 18px;max-width:60ch}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ember);font-weight:600}
+.sample{display:inline-block;font-size:12px;background:var(--warn-soft);color:var(--warn);padding:2px 8px;border-radius:4px;font-weight:600}
+.note{font-size:13px;color:var(--muted);border-left:3px solid var(--line);padding-left:10px;margin-top:16px}
+.mono{font-family:var(--mono)}
+
+
+/* ══ 5. 입력 폼 ════════════════════════════════════════════════ */
+form.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.full{grid-column:1/-1}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:500}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;min-width:0}
+.full > label + .seg{margin-top:6px}
+.hint{font-weight:400;color:var(--muted)}
+/* 근로자 화면에서는 사업자 유형·건물 소유가 아무 단계도 바꾸지 않으므로 감춘다 */
+:root[data-role="worker"] .owner-only{display:none}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{flex-direction:row;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:8px 12px;color:var(--ink);cursor:pointer;background:var(--bg)}
+.seg input{accent-color:var(--ember)}
+.btn{font:inherit;font-weight:600;border:0;border-radius:8px;padding:12px 18px;cursor:pointer;background:var(--ember);color:#fff}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row.mt{margin-top:10px}
+
+
+/* ══ 6. 처리 순서 (진행률 · 기한 묶음 · 단계 카드) ════════════════
+   .phase 첫 컬럼 104px — 'D+90' 과 '2027. 2. 3' 이 줄바꿈 없이 들어가야 한다.
+   좁히면 날짜의 '일' 숫자가 다음 줄로 떨어진다. 데모에서 비교되는 숫자라 치명적. */
+.progress{display:flex;align-items:center;gap:12px;margin:0 0 18px}
+.bar{flex:1;height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+.pct{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.phase{display:grid;grid-template-columns:104px 1fr;gap:14px;margin-bottom:18px}
+.dday{font-family:var(--mono);font-weight:600;font-size:15px;color:var(--ember);padding-top:12px}
+.dday small{display:block;font-size:11px;color:var(--muted);font-weight:500}
+.steps{display:flex;flex-direction:column;gap:8px;min-width:0}
+.step{display:grid;grid-template-columns:24px 1fr;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px}
+.step input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--ok)}
+.step.done{background:var(--ok-soft);border-color:transparent}
+.step.done strong{text-decoration:line-through;text-decoration-color:var(--muted)}
+.step strong{display:block;font-weight:600}
+.step p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.where{font-size:13px;margin-top:4px}
+.where a{color:var(--ember)}
+/* 화재일로 셀 수 없는 기한(국세 납부기한)과 세액공제 마감 */
+.where.due-hard{color:var(--warn)}
+
+/* 배지는 must/warn 두 종류만 쓴다. 늘리면 '필수'의 무게가 희석된다 (docs/legal-basis.md §5) */
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:2px}
+.t-must{background:var(--ember-soft);color:var(--ember)}
+.t-warn{background:var(--warn-soft);color:var(--warn)}
+
+
+/* ══ 7. 표와 경위서 ════════════════════════════════════════════ */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--surface)}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600}
+.draft{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;white-space:pre-wrap;font-size:14px;line-height:1.75}
+
+
+/* ══ 8. 목록 카드 (병원 · 지원제도) ══════════════════════════════ */
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;justify-content:space-between;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;flex-wrap:wrap}
+.item>div{min-width:0;flex:1 1 240px}
+.item strong{font-weight:600}
+.item p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.pill{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;align-self:flex-start;white-space:nowrap}
+.p-ok{background:var(--ok-soft);color:var(--ok)}
+.p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-no{background:var(--line);color:var(--muted)}
+
+
+/* ══ 9. 안산시 담당자 대시보드 ══════════════════════════════════ */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px}
+.kpi b{display:block;font-family:var(--mono);font-size:22px}
+.kpi span{font-size:12px;color:var(--muted)}
+.stage{display:flex;gap:2px}
+.stage i{width:14px;height:6px;border-radius:2px;background:var(--line)}
+.stage i.on{background:var(--ember)}
+
+
+/* ══ 10. 토스트 ════════════════════════════════════════════════ */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px}
+
+
+/* ══ 11. 반응형 · 접근성 ═══════════════════════════════════════ */
+/* 520px 이하에서는 기한 묶음이 1컬럼이 되므로 104px 제약과 무관해진다 */
+@media (max-width:520px){form.grid{grid-template-columns:1fr}.phase{grid-template-columns:1fr;gap:6px}.dday{padding-top:0}.kpis{grid-template-columns:repeat(2,1fr)}}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">다시<b>가동</b></div>
+      <div class="case" id="caseLabel"></div>
+    </div>
+    <nav id="nav" aria-label="화면">
+      <a href="#start">상황 입력</a>
+      <a href="#steps">처리 순서</a>
+      <a href="#docs">서류</a>
+      <a href="#care">산재·병원</a>
+      <a href="#support">지원제도</a>
+      <a href="#admin">안산시 담당자</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section id="v-start">
+  <div class="eyebrow">반월·시화 산단 화재·화학사고 사후 대처</div>
+  <h1>불이 난 뒤, 무엇부터 해야 할지 순서대로 알려드려요</h1>
+  <p class="lead">상황을 입력하면 오늘 할 일부터 30일 뒤 재가동까지, 사업주와 근로자 각각의 처리 순서와 필요한 서류를 만들어 드려요. <span class="sample">예시 사례가 채워져 있어요</span></p>
+  <form class="grid" id="f">
+    <div class="full">
+      <label>나는</label>
+      <div class="seg">
+        <label><input type="radio" name="role" id="role-owner" value="owner" checked>사업주</label>
+        <label><input type="radio" name="role" id="role-worker" value="worker">다친 근로자</label>
+      </div>
+    </div>
+    <div class="full owner-only">
+      <label>사업자 유형<small class="hint"> · 세액공제 기한과 화재증명원 발급 방법이 달라져요</small></label>
+      <div class="seg">
+        <label><input type="radio" name="biz" id="biz-corp" value="corp" checked>법인</label>
+        <label><input type="radio" name="biz" id="biz-indiv" value="indiv">개인사업자</label>
+      </div>
+    </div>
+    <div class="full owner-only">
+      <label>공장 건물<small class="hint"> · 보험금 청구 범위와 철거 신청 주체가 달라져요</small></label>
+      <div class="seg">
+        <label><input type="radio" name="tenure" id="ten-own" value="own">자가(소유)</label>
+        <label><input type="radio" name="tenure" id="ten-rent" value="rent" checked>임차</label>
+      </div>
+    </div>
+    <label>상호<input id="name" value="(예시) 사동정밀"></label>
+    <label>사업장 주소<input id="addr" value="안산시 상록구 사동 (예시)"></label>
+    <label>화재 발생 일시<input id="date" type="datetime-local" value="2026-11-05T21:05"></label>
+    <label>업종<select id="ind"><option>금속·기계 가공</option><option>화학·도금·염색</option><option>자동차 정비</option><option>포장·인쇄</option><option>기타 제조</option></select></label>
+    <label>상시 근로자 수<input id="emp" type="number" min="1" value="12"></label>
+    <label>부상자 수<input id="hurt" type="number" min="0" value="1"></label>
+    <label>화재보험 가입<select id="ins"><option value="y">가입</option><option value="n">미가입</option><option value="u">모름</option></select></label>
+    <label>예상 피해 규모<select id="loss"><option value="s">설비 일부</option><option value="m" selected>공장 일부 소실</option><option value="l">공장 전체 소실</option></select></label>
+    <label class="full">피해 내용 메모<input id="memo" value="2층 도장 부스 발화, 도장 설비 2대·원자재 재고 소실, 근로자 1명 손 화상"></label>
+    <div class="full row"><button class="btn" type="submit" id="go">내 처리 순서 보기</button><span class="pct">입력한 내용은 이 기기에만 저장돼요</span>
+      <button class="btn ghost" type="button" id="reset">처음부터 다시</button>
+      <button class="btn ghost" type="button" id="theme">화면 모드</button></div>
+  </form>
+  <p class="note">안산 반월·시화 국가산단에는 2만1,885개 기업, 약 24만 명이 일해요 (2025.12 기준). 대부분 50인 미만 영세 제조업이라 사고 뒤 처리를 도와줄 전담 인력이 없어요.</p>
+</section>
+
+<section id="v-steps" hidden>
+  <div class="eyebrow" id="stepsRole"></div>
+  <h1 id="stepsTitle">처리 순서</h1>
+  <div class="progress"><div class="bar"><i id="barFill"></i></div><span class="pct" id="pct">0%</span></div>
+  <div id="phases"></div>
+  <p class="note">법령·제도 내용은 해커톤 프로토타입 기준으로 정리했어요. 실제 서비스에서는 근로복지공단·소방서·안산시 담당 부서 검수를 거쳐 반영해요.</p>
+</section>
+
+<section id="v-docs" hidden>
+  <div class="eyebrow">서류</div>
+  <h1>떼야 하는 서류와 어디서 받는지</h1>
+  <p class="lead">한 번 입력한 정보로 피해 경위서 초안을 채워 드려요. 공식 서식은 발급처에서 받아야 해요.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>서류</th><th>누가</th><th>어디서</th><th>쓰이는 곳</th></tr></thead>
+    <tbody id="docRows"></tbody>
+  </table></div>
+  <h2>피해 경위서 초안</h2>
+  <div class="draft" id="draft"></div>
+  <div class="row mt"><button class="btn ghost" id="copy" type="button">초안 복사</button></div>
+</section>
+
+<section id="v-care" hidden>
+  <div class="eyebrow">산재·병원</div>
+  <h1>다친 사람이 있다면</h1>
+  <p class="lead">산재 신청은 근로자가 직접 해요. 회사가 산재 처리를 꺼려도 근로자 혼자 신청할 수 있어요. 산재 지정 의료기관으로 가면 병원이 요양급여 신청을 도와줘요.</p>
+  <h2>가까운 응급·산재 진료 병원</h2>
+  <div class="list" id="hosp"></div>
+  <p class="note">병원 목록은 프로토타입용 예시예요. 실제 서비스는 공공데이터포털 '근로복지공단_산재보험 지정의료기관 현황정보'(매년 갱신, 오픈API)를 주소 좌표로 바꿔 사업장에서 가까운 순으로 보여줘요. 산재 지정 여부는 근로복지공단(1588-0075)에서 확인할 수 있어요.</p>
+  <h2>근로자가 받을 수 있는 것</h2>
+  <div class="list">
+    <div class="item"><div><strong>요양급여</strong><p>치료비. 산재 지정 병원이면 병원이 신청을 대신 해줄 수 있어요.</p></div><span class="pill p-ok">신청</span></div>
+    <div class="item"><div><strong>휴업급여</strong><p>일하지 못한 기간에 평균임금의 70%를 받아요. 4일 이상 치료가 필요할 때 해당돼요.</p></div><span class="pill p-ok">신청</span></div>
+    <div class="item"><div><strong>장해급여</strong><p>치료가 끝난 뒤 장해가 남으면 등급에 따라 받아요.</p></div><span class="pill p-no">치료 후</span></div>
+  </div>
+</section>
+
+<section id="v-support" hidden>
+  <div class="eyebrow">지원제도</div>
+  <h1>받을 수 있는 지원</h1>
+  <p class="lead" id="supLead"></p>
+  <div class="list" id="sup"></div>
+  <h2>무료 상담 창구</h2>
+  <div class="list">
+    <div class="item"><div><strong>대한법률구조공단</strong><p>보험금 분쟁, 손해배상, 임대차 문제 상담. <span class="mono">132</span></p></div><span class="pill p-ok">법률</span></div>
+    <div class="item"><div><strong>근로복지공단</strong><p>산재 신청, 휴업급여 문의. <span class="mono">1588-0075</span></p></div><span class="pill p-ok">산재</span></div>
+    <div class="item"><div><strong>철거는 언제 부를까</strong><p>화재 원인 감식과 보험 손해사정이 끝나기 전에 현장을 치우면 보험금이나 원인 규명에 불리할 수 있어요. 보험사·소방서에 현장 정리 가능 시점을 먼저 확인하세요.</p></div><span class="pill p-warn">순서 주의</span></div>
+  </div>
+</section>
+
+<section id="v-admin" hidden>
+  <div class="eyebrow">안산시 담당자 화면 · 목업</div>
+  <h1>산단 화재 피해 접수 현황</h1>
+  <p class="lead"><span class="sample">예시 데이터</span> 사업장이 앱에서 처리 단계를 체크하면 시는 어떤 사업장이 어디서 막혔는지 한눈에 보고 먼저 연락할 수 있어요.</p>
+  <div class="kpis">
+    <div class="kpi"><b>7</b><span>최근 30일 접수</span></div>
+    <div class="kpi"><b>3</b><span>서류 단계 정체</span></div>
+    <div class="kpi"><b>2</b><span>부상자 발생</span></div>
+    <div class="kpi"><b>4</b><span>보험 미가입</span></div>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th>사업장</th><th>지역</th><th>발생</th><th>진행</th><th>필요 조치</th></tr></thead>
+    <tbody id="adminRows"></tbody>
+  </table></div>
+</section>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ===== src/lib.js ===== */
+/* lib.js — 화면·데이터와 무관한 유틸.
+   여기에 도메인 지식(법령, 문구)을 넣지 말 것. */
+
+const $  = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+
+/* localStorage 는 시크릿 창·사이트 데이터 차단에서 던지거나 비어 올 수 있다.
+   읽기/쓰기 모두 실패해도 화면은 정상 동작해야 한다. */
+const STORE_KEYS = { form: 'dg-form', done: 'dg-done', theme: 'dg-theme' };
+const store = {
+  get(k)   { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+  set(k,v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k)   { try { localStorage.removeItem(k); } catch (e) {} },
+};
+
+/* 날짜 ── 법정 기한은 전부 '화재 발생일 + N일'로 센다. */
+const addDays = (iso, n) => {
+  const x = new Date(iso);
+  if (isNaN(x)) return null;
+  x.setDate(x.getDate() + n);
+  return x;
+};
+/* 짧은 형식. 헤더·대시보드처럼 연도가 필요 없는 자리에만 쓴다. */
+const fmtShort = (iso, n = 0) => {
+  const x = addDays(iso, n);
+  return x ? `${x.getMonth() + 1}.${x.getDate()}` : '';
+};
+/* 긴 형식. 단계 마감일은 해를 넘기는 경우가 있어(법인 D+90 = 이듬해 2월)
+   항상 연도를 찍는다. 한쪽만 연도가 붙으면 두 날짜를 비교할 때 형식이 어긋난다. */
+const fmtFull = (iso, n = 0) => {
+  const x = addDays(iso, n);
+  return x ? `${x.getFullYear()}. ${x.getMonth() + 1}. ${x.getDate()}` : '';
+};
+const fmtDateTime = (iso) => {
+  const x = new Date(iso);
+  if (isNaN(x)) return '';
+  const p = (v) => String(v).padStart(2, '0');
+  return `${x.getFullYear()}년 ${x.getMonth() + 1}월 ${x.getDate()}일 ${p(x.getHours())}:${p(x.getMinutes())}`;
+};
+const today = () => {
+  const t = new Date();
+  return `${t.getFullYear()}년 ${t.getMonth() + 1}월 ${t.getDate()}일`;
+};
+
+/* innerHTML 에 들어가는 값은 전부 통과시킨다.
+   지금은 사용자 입력이 innerHTML 로 가는 경로가 없지만,
+   상호명을 카드에 넣는 순간 생기므로 미리 막아 둔다. */
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+/* 값이 문자열이면 그대로, 함수면 조건을 넣어 호출 */
+const resolve = (v, ctx) => (typeof v === 'function' ? v(ctx) : v);
+
+
+
+/* ===== src/content.js ===== */
+/* content.js — 화면에 나가는 모든 문구와 그 법령 근거.
+   ─────────────────────────────────────────────────────────────
+   이 파일에는 '무엇을 말하는가'만 둔다. 렌더링과 이벤트는 app.js 에 있다.
+   법령이 개정되면 이 파일만 고치면 되고, JS 를 몰라도 title/body/law 문자열은 고칠 수 있다.
+
+   근거 문서: ../../docs/legal-basis.md (분류·기한·분기 조건의 출처)
+             ../../docs/fire-owner-steps.md (20단계 원문)
+
+   ⚠️ 문구를 고칠 때 지킬 것 (docs/legal-basis.md §5, CLAUDE.md §8)
+     - 조문 번호·금액·기한을 임의로 바꾸지 말 것
+     - 조건부 제도에는 "시 인정 시"를 반드시 붙일 것 (재해 정책자금, 지방세 연장)
+     - '감식 전 철거'(위법, 벌금)와 '손해사정 전 철거'(위법 아님, 실무 불이익)를 섞지 말 것
+     - 책임 유무를 단정하지 말 것. 증명책임이 어디 있는지만 쓸 것 (임대인 배상)
+*/
+
+/* ── 단계의 법적 성격 (legal-basis.md §5) ──────────────────────
+   화면 배지(tag)와는 별개다. 배지를 4종으로 늘리면 '필수'의 무게가 희석되므로
+   화면에는 must/warn 2종만 쓰고, kind 는 문서·감사·질의응답 대비로만 둔다. */
+const KIND = {
+  duty:     '법정 의무 (위반 시 제재)',
+  right:    '권리·신청 (기한을 놓치면 손해)',
+  contract: '계약상 의무 (보험)',
+  advice:   '실무 권고 (법적 의무 아님)',
+};
+
+/* ── 기한 묶음 ────────────────────────────────────────────────
+   day 가 숫자면 화재일 + N일. 'tax' 는 사업자 유형에 따라 달라지고,
+   'none' 은 화재일 기준으로 셀 수 없는 기한(국세 납부기한 연장)이다. */
+const PHASES = {
+  0:      { label: '당일' },
+  1:      { label: '1~3일' },
+  7:      { label: '1주' },
+  30:     { label: '한 달 안' },
+  tax:    { label: '세액공제 기한', day: (c) => (c.corp ? 90 : 30) },
+  none:   { label: '기한을 따로 세는 것', day: () => null },
+};
+
+/* ── 입력값에서 분기 조건을 뽑는다 ──────────────────────────────
+   화면과 문구의 모든 분기는 여기서 나온 플래그만 본다.
+   새 분기를 추가할 땐 반드시 여기에 이름을 붙이고 쓸 것. */
+function context(d) {
+  const corp = d.biz !== 'indiv';
+  const rent = d.tenure === 'rent';
+  return {
+    ...d,
+    hurt: +d.hurt > 0,          // 부상자 있음
+    hurtCount: +d.hurt || 0,
+    insured: d.ins === 'y',     // 화재보험 가입
+    insUnknown: d.ins === 'u',  // 가입 여부 모름 → 미가입으로 단정하면 안 된다
+    corp,                       // 법인 (아니면 개인사업자)
+    rent,                       // 임차 (아니면 자가)
+    /* 정부24 온라인 발급 대상은 '개인 건물주'다.
+       개인사업자라도 임차면 소방서 방문이다. 두 축이 여기서 교차한다. */
+    gov24: !corp && !rent,
+    small: +d.emp < 50,
+  };
+}
+
+/* ── 사업주 처리 단계 ──────────────────────────────────────────
+   when 을 생략하면 항상 표시된다. body/where/due 는 문자열 또는 (c)=>문자열. */
+const OWNER_STEPS = [
+  { id:'o1', phase:0, tag:'must', kind:'advice',
+    when:(c)=>c.hurt,
+    title:'부상자 병원 이송',
+    law:'근로복지공단 산재보험 지정의료기관 (공공데이터포털)',
+    body:'산재 지정 병원으로 가면 치료비 처리가 빨라요. 산재·병원 탭에서 가까운 곳을 확인하세요.' },
+
+  { id:'o2', phase:0, tag:'must', kind:'duty',
+    title:'현장 보존, 치우지 않기',
+    law:'소방의 화재조사에 관한 법률 제8조·제21조',
+    body:'소방서 허가 없이 화재 현장 물건을 옮기거나 훼손하면 300만 원 이하 벌금이에요(화재조사법 제8·21조). 보험 손해사정 전 정리도 보험금 산정에 불리할 수 있어요.' },
+
+  { id:'o3', phase:0, kind:'advice',
+    title:'피해 사진·영상 남기기',
+    law:null,
+    body:'건물, 설비, 재고를 각도별로 찍고 촬영 시각이 남게 보관하세요.' },
+
+  /* 보험 '모름'을 '미가입'으로 처리하면 상법 657조 통지 의무가 화면에서 사라진다.
+     통지가 늦어 커진 손해는 보상되지 않으므로 가장 급한 항목이 빠지는 셈이다. */
+  { id:'o4u', phase:0, tag:'must', kind:'contract',
+    when:(c)=>c.insUnknown,
+    title:'화재보험 가입 여부부터 확인',
+    law:'상법 제657조',
+    body:'가입돼 있다면 보험사고를 안 때 지체 없이 알려야 하고, 늦어서 커진 손해는 보상받지 못할 수 있어요(상법 제657조). 증권을 못 찾으면 거래 은행이나 보험협회에 조회하세요. 임차 공장이면 건물 보험은 건물주 명의일 수 있어요.' },
+
+  { id:'o4', phase:0, tag:'must', kind:'contract',
+    when:(c)=>c.insured,
+    title:'보험사에 사고 접수',
+    law:'상법 제657조',
+    body:(c)=>'보험사고를 안 때 지체 없이 알려야 하고, 늦어서 커진 손해는 보상받지 못할 수 있어요(상법 제657조). 증권번호와 화재 일시를 알려주고 손해사정 일정을 잡으세요.'
+      + (c.rent ? ' 임차 공장이면 건물 화재보험은 보통 건물주가 계약자예요. 사장님이 직접 청구할 수 있는 건 설비·재고 같은 동산 피해입니다. 건물 피해는 건물주 보험사로 넘어가요.' : '') },
+
+  /* 20단계 중 유일하게 '하면 보험사가 비용을 대주는' 항목.
+     현장 보존(o2)과 짝이다 — "치우지는 말되 더 번지지는 않게".
+     다만 두 의무가 부딪힐 수 있어(화재조사법 제8조 vs 상법 제680조)
+     물건을 옮겨야 하면 소방서에 먼저 확인하라고 안내한다. */
+  { id:'o2b', phase:0, tag:'must', kind:'contract',
+    when:(c)=>c.insured || c.insUnknown,
+    title:'더 번지지 않게 막기 (전기·가스 차단)',
+    law:'상법 제680조 (손해방지의무)',
+    body:'남은 재고와 설비가 더 상하지 않게 전기·가스를 차단하고, 비를 맞을 자리의 물건은 덮어 두세요. 이때 든 비용은 보험사가 부담합니다(상법 제680조). 다만 화재 현장의 물건을 옮기는 것은 소방 조사와 부딪힐 수 있으니(화재조사법 제8조), 옮겨야 한다면 소방서에 먼저 확인하세요.' },
+
+  { id:'o5', phase:0, tag:'warn', kind:'duty',
+    when:(c)=>c.hurt,
+    title:'중대재해 해당 여부 확인',
+    law:'산업안전보건법 제54조②·제57조③, 시행규칙 제3조·제73조',
+    body:'사망 1명 이상, 3개월 이상 요양이 필요한 부상자가 동시에 2명 이상, 부상자 또는 직업성 질병자가 동시에 10명 이상이면 고용노동지청에 지체 없이 보고해야 해요(산안법 제54조②, 과태료 최대 3천만 원). 3일 이상 쉬는 부상이면 1개월 안에 산업재해조사표를 내야 해요(제57조③, 과태료 최대 1,500만 원).' },
+
+  { id:'o6', phase:1, kind:'right',
+    title:'화재증명원 발급',
+    law:'소방의 화재조사에 관한 법률 시행규칙 별지 제2호서식',
+    body:(c)=>'보험 청구, 세금 감면, 지원금 신청에 공통으로 쓰여요. 무료이고 바로 나와요. '
+      + (c.gov24 ? '개인 건물주는 정부24 온라인으로도 발급받을 수 있어요.'
+        : c.corp ? '법인은 정부24 온라인 발급이 안 돼서 소방서에 직접 방문해야 해요.'
+                 : '정부24 온라인은 개인 건물주만 가능해요. 임차 공장이면 소방서에 방문해야 해요.'),
+    where:(c)=>c.gov24 ? '소방서·119안전센터 또는 정부24' : '가까운 소방서 또는 119안전센터 (방문)' },
+
+  { id:'o7', phase:1, kind:'advice',
+    title:'피해 목록 작성',
+    law:'법인세법·소득세법 제58조 (자산 20% 기준 계산에 필요)',
+    body:'설비·재고·건물 피해를 품목별로 적어요. 서류 탭에서 초안을 만들 수 있어요.' },
+
+  { id:'o8', phase:1, kind:'right',
+    when:(c)=>c.hurt,
+    title:'다친 직원에게 산재 신청 안내',
+    law:'2018.1 사업주 확인(날인) 제도 폐지',
+    body:'산재 신청은 근로자가 직접 해요. 사업주는 사고 경위 확인에 협조하면 돼요.' },
+
+  { id:'o9', phase:1, kind:'advice',
+    title:'거래처에 납기 지연 알리기',
+    law:null,
+    body:'계약서의 불가항력 조항을 확인하세요.' },
+
+  { id:'o10', phase:7, kind:'right',
+    title:'지원제도 신청',
+    law:null,
+    body:'지원제도 탭에서 우리 사업장에 맞는 것만 골라 보세요.' },
+
+  /* 임차 사업주는 '받는 쪽'과 '무는 쪽'에 동시에 노출된다 (legal-basis.md §10).
+     ⚠️ 책임 유무를 단정하지 말 것. 증명책임이 어디 있는지만 알린다. */
+  { id:'o16', phase:7, tag:'warn', kind:'right',
+    when:(c)=>c.rent,
+    title:'임대인의 배상 요구에 대비',
+    law:'대법원 2017. 5. 18. 선고 2012다86895, 86901 전원합의체',
+    body:"임대인에게서 건물 피해 배상을 요구받을 수 있어요. 불이 난 임차 부분은 사장님이 '내 책임이 아니다'를 증명하지 못하면 배상 책임이 인정될 수 있고, 임차하지 않은 다른 부분은 반대로 임대인이 사장님의 관리 잘못을 증명해야 합니다(대법원 2017. 5. 18. 선고 2012다86895 전원합의체). 배상 요구를 받으면 혼자 판단하지 말고 대한법률구조공단 132에 먼저 상담하세요.",
+    where:'대한법률구조공단 132 (무료)' },
+
+  { id:'o12', phase:7, kind:'right',
+    tag:(c)=>c.insured ? null : 'warn',
+    title:(c)=>c.insured ? '손해사정 결과 확인'
+            : c.insUnknown ? '가입 확인 결과에 따라 갈라져요'
+                           : '보험 미가입 사업장 지원 확인',
+    law:'상법 제662조 (보험금 청구권 소멸시효 3년)',
+    body:(c)=>c.insured ? '산정 금액이 납득되지 않으면 법률구조공단(132)에 상담하세요. 보험금 청구권은 3년이 지나면 사라져요(상법 제662조).'
+            : c.insUnknown ? '가입이 확인되면 바로 사고 접수부터 하세요. 미가입이면 융자·세금 지원이 사실상 유일한 회복 수단이에요.'
+                           : '보험이 없으면 융자·세금 지원이 사실상 유일한 회복 수단이에요.' },
+
+  { id:'o17', phase:30, kind:'duty',
+    title:'건물 해체·철거 허가 또는 신고',
+    law:'건축물관리법 제30조',
+    body:(c)=>c.rent ? '임차 공장은 건물 해체 신고의 당사자가 건물주·관리주체예요. 사장님이 직접 신청하는 게 아니라 건물주와 먼저 협의하세요(건축물관리법 제30조).'
+                     : '건물을 해체하려면 허가를 받아야 하고, 일정 규모 이하는 신고로 가능해요(건축물관리법 제30조).',
+    where:(c)=>c.rent ? '건물주·관리주체를 통해 안산시 건축과' : '안산시 건축과' },
+
+  { id:'o13', phase:30, kind:'advice',
+    title:'철거·복구 업체 선정',
+    law:null,
+    body:'감식과 손해사정이 끝난 뒤에 계약하세요. 견적은 2곳 이상 받으세요. 잔재물은 사업장 폐기물이라 허가 업체에 위탁해야 해요.' },
+
+  /* 재가동 전 점검은 법적 의무가 아니다. '필수' 배지를 붙이지 말 것. */
+  { id:'o14', phase:30, kind:'advice',
+    title:'전기·가스 안전점검 후 재가동',
+    law:'전기안전관리법 제9조 (새로 시공한 경우에 한해 사용전검사)',
+    body:'재가동 전 점검은 법적 의무가 아니라 권장이에요. 다만 전기 설비를 새로 시공했다면 사용전검사 대상일 수 있어요(전기안전관리법 제9조).' },
+
+  /* 신청기한이 세목에 따라 갈린다. 개인 1개월 / 법인 3개월 — 3배 차이. */
+  { id:'o15', phase:'tax', kind:'right',
+    title:'재해손실세액공제 신청',
+    law:(c)=>c.corp ? '법인세법 제58조' : '소득세법 제58조',
+    body:(c)=>(c.corp
+      ? '토지를 뺀 사업용 자산의 20% 이상을 잃었다면 법인세에서 공제받아요. 법인은 재해가 난 날부터 3개월 안에 신청해야 해요(법인세법 제58조).'
+      : '토지를 뺀 사업용 자산의 20% 이상을 잃었다면 소득세에서 공제받아요. 개인사업자는 재해가 난 날부터 1개월 안에 신청해야 해요(소득세법 제58조). 법인보다 기한이 3분의 1로 짧아요.')
+      + ' 보험금을 받아도 차감하지 않아요.',
+    where:'납세지 관할 세무서 (우편 또는 홈택스)',
+    due:(c)=>c.corp ? '재해가 난 날부터 3개월 (법인세법 제58조)' : '재해가 난 날부터 1개월 (소득세법 제58조)' },
+
+  /* ⚠️ 이 기한만 화재일이 아니라 '세금 납부기한'을 기준으로 센다.
+     D+N 으로 표시하면 틀린 날짜를 화면에 띄우는 것이라 phase 를 'none' 으로 둔다. */
+  { id:'o11', phase:'none', kind:'right',
+    title:'세금 납부기한 연장 신청',
+    law:'국세징수법 제13조 / 지방세기본법 (시 인정 시)',
+    body:'재난으로 재산에 심한 손실을 입으면 국세 납부를 최대 9개월까지 미룰 수 있어요(국세징수법 제13조). 지방세는 안산시가 재난에 준하는 사유로 인정하면 6개월 연장돼요.',
+    where:'관할 세무서, 안산시 세정과',
+    due:'화재일이 아니라 세금 납부기한 만료 3일 전까지 신청' },
+];
+
+/* ── 다친 근로자 단계 ─────────────────────────────────────────── */
+const WORKER_STEPS = [
+  { id:'w1', phase:0, tag:'must', kind:'advice', title:'치료 먼저 받기',
+    law:null, body:'산재 지정 병원이면 치료비를 내가 먼저 내지 않아도 돼요.' },
+  { id:'w2', phase:0, kind:'advice', title:'사고 경위 메모',
+    law:null, body:'시각, 위치, 하던 작업, 목격한 동료 연락처를 적어 두세요.' },
+  { id:'w3', phase:1, kind:'right', title:'요양급여 신청',
+    law:'산업재해보상보험법 제112조 (요양급여 청구권 3년)',
+    body:'병원 원무과에 산재로 처리해 달라고 하면 신청을 도와줘요.',
+    where:'근로복지공단 · 고용·산재보험 토탈서비스' },
+  { id:'w4', phase:1, tag:'warn', kind:'right', title:'회사가 산재를 꺼려도 직접 신청 가능',
+    law:'2018.1 사업주 확인(날인) 제도 폐지',
+    body:'2018년부터 사업주 확인(날인) 없이 근로자 혼자 신청할 수 있어요.' },
+  { id:'w5', phase:7, kind:'right', title:'휴업급여 청구',
+    law:'산업재해보상보험법', body:'일하지 못한 기간에 평균임금의 70%를 받아요.' },
+  { id:'w6', phase:7, kind:'advice', title:'급여명세서 챙기기',
+    law:null, body:'평균임금 계산에 최근 3개월 급여 자료가 필요해요.' },
+  { id:'w7', phase:30, kind:'advice', title:'치료 연장 또는 복귀 계획',
+    law:null, body:'치료가 더 필요하면 진료계획서를 내서 연장해요.' },
+];
+
+/* ── 서류표 ─────────────────────────────────────────────────── */
+const DOC_ROWS = (c) => [
+  ['화재증명원', '사업주 (관계인)',
+    c.gov24 ? '소방서·119안전센터 또는 정부24' : '가까운 소방서·119안전센터 (방문)',
+    '보험 청구, 세금 감면, 지원금'],
+  ['피해 경위서·피해 목록', '사업주', '이 앱에서 초안 작성', '보험사, 지원기관 제출'],
+  ['사업자등록증명', '사업주', '홈택스', '지원금·융자 신청'],
+  c.insured && ['보험금 청구서', '사업주', '가입 보험사', '화재보험 청구'],
+  c.hurt && ['요양급여신청서', '근로자 (병원 대행 가능)', '근로복지공단', '치료비'],
+  c.hurt && ['휴업급여청구서', '근로자', '근로복지공단', '휴업 기간 급여'],
+  ['재해중소기업 확인증', '사업주', '안산시 (사회재난 인정 시)', '중진공 긴급경영안정자금'],
+].filter(Boolean);
+
+/* ── 지원제도 ───────────────────────────────────────────────── */
+const SUPPORT = (c) => [
+  { t:'중소기업 긴급경영안정자금 (재해 피해)', pill:'warn', label:'시 인정 시',
+    p:'연 1.9% 고정, 최대 10억 원, 5년. 안산시가 화재를 사회재난으로 인정해 재해중소기업 확인증을 내줘야 신청할 수 있어요 (2023 김포 공장 화재 인정 사례).' },
+  { t:'국세 납부기한 연장·징수 유예', pill:'ok', label:'신청 가능',
+    p:'재난으로 재산에 심한 손실을 입으면 최대 9개월까지 미룰 수 있어요 (국세징수법 제13조). 관할 세무서에 신청.' },
+  { t:'재해손실세액공제', pill:c.loss === 's' ? 'warn' : 'ok', label:c.corp ? '기한 D+90' : '기한 D+30',
+    p:'토지를 뺀 사업용 자산의 20% 이상을 잃으면 공제. 보험금을 받아도 차감하지 않아요. '
+      + (c.corp ? '법인은 재해일부터 3개월 안에 신청해야 해요(법인세법 제58조).'
+                : '개인사업자는 재해일부터 1개월 안에 신청해야 해요(소득세법 제58조).') },
+  { t:'지방세 납부기한 연장', pill:'warn', label:'시 판단',
+    p:'재난에 준하는 사유로 인정되면 6개월 연장, 1회 더 연장 가능. 안산시 세정과에 화재증명원과 함께 신청.' },
+  { t:'화재보험 보험금',
+    pill: c.insured ? 'ok' : c.insUnknown ? 'warn' : 'no',
+    label: c.insured ? '청구' : c.insUnknown ? '가입 확인 먼저' : '미가입',
+    p:(c.insured ? '가입 보험사에 청구. 휴업손실 특약이 있으면 영업 중단 손실도 보상돼요.'
+       : c.insUnknown ? '가입 여부를 먼저 확인하세요. 가입돼 있다면 지체 없이 사고를 알려야 하고, 늦으면 늘어난 손해는 못 받을 수 있어요(상법 제657조).'
+       : '미가입. 다음 화재에 대비해 가입 검토가 필요해요.')
+      + (c.rent ? ' 임차 사업장은 동산(설비·재고) 보험만 사장님 몫이에요. 건물 보험금은 건물주에게 지급됩니다.' : '') },
+  c.hurt && { t:'산재보험 (근로자)', pill:'ok', label:'근로자 신청',
+    p:'요양급여, 휴업급여. 근로자가 근로복지공단에 신청.' },
+].filter(Boolean);
+
+/* ── 산재·병원 (예시 데이터. 실서비스는 근로복지공단 오픈API) ───── */
+const HOSPITALS = [
+  ['고려대학교 안산병원', '단원구 적금로 123', '권역응급의료센터'],
+  ['한도병원', '단원구 선부광장로 (예시 주소)', '지역응급의료센터'],
+  ['단원병원', '단원구 (예시 주소)', '지역응급의료센터 · 2026.9 신규 지정'],
+];
+
+/* ── 안산시 담당자 대시보드 (예시 데이터 목업) ──────────────────── */
+const ADMIN_ROWS = [
+  ['사동정밀', '사동 준공업지역', '11.05', 2, '화재증명원 미발급'],
+  ['○○도금', '원시동 반월산단', '11.02', 3, '손해사정 대기'],
+  ['△△염료', '성곡동 반월산단', '10.28', 4, '지원금 서류 보완'],
+  ['□□포장', '성곡동 반월산단', '10.21', 1, '부상자 산재 미신청'],
+  ['◇◇정비', '사이동', '10.18', 5, '재가동 점검 예약'],
+  ['☆☆화학', '시화 MTV', '10.12', 6, '완료'],
+  ['◎◎금속', '원시동 반월산단', '10.09', 2, '보험 미가입 · 융자 상담 필요'],
+];
+
+const LOSS_TEXT = { s:'설비 일부가 손상', m:'공장 일부가 소실', l:'공장 전체가 소실' };
+const INS_TEXT  = { y:'화재보험 가입', n:'미가입', u:'확인 중' };
+const INS_SHORT = { y:'가입', n:'미가입', u:'모름' };
+
+
+
+/* ===== src/plan.js ===== */
+/* plan.js — 입력 조건에서 "무엇을, 언제까지" 를 계산하는 순수 로직.
+   DOM 을 만지지 않는다. 그래서 test.mjs 가 브라우저 없이 그대로 돌린다.
+   화면 그리기는 app.js, 문구와 법령은 content.js. */
+
+/* 표시할 단계를 고르고 기한 묶음으로 묶는다.
+   정렬 기준은 화재일로부터 센 날짜. 날짜로 셀 수 없는 묶음은 맨 뒤로 보낸다. */
+function buildPhases(steps, ctx) {
+  const groups = new Map();                       // phase key → {key, day, label, items}
+  for (const step of steps) {
+    if (step.when && !step.when(ctx)) continue;
+    const def = PHASES[step.phase];
+    if (!def) { console.warn('알 수 없는 phase:', step.phase, step.id); continue; }
+    const day = typeof def.day === 'function' ? def.day(ctx) : Number(step.phase);
+    if (!groups.has(step.phase)) groups.set(step.phase, { key: step.phase, day, label: def.label, items: [] });
+    groups.get(step.phase).items.push({
+      id:    step.id,
+      title: resolve(step.title, ctx),
+      body:  resolve(step.body,  ctx),
+      where: resolve(step.where, ctx),
+      due:   resolve(step.due,   ctx),
+      tag:   resolve(step.tag,   ctx),
+      law:   resolve(step.law,   ctx),
+      kind:  step.kind,
+    });
+  }
+  return [...groups.values()].sort((a, b) => {
+    if (a.day === null) return 1;
+    if (b.day === null) return -1;
+    return a.day - b.day;
+  });
+}
+
+const planFor = (d) => {
+  const ctx = context(d);
+  return { ctx, phases: buildPhases(d.role === 'worker' ? WORKER_STEPS : OWNER_STEPS, ctx) };
+};
+const countSteps = (phases) => phases.reduce((n, p) => n + p.items.length, 0);
+
+
+
+/* ===== src/app.js ===== */
+/* app.js — 입력을 읽고, content.js 의 데이터를 화면에 그리고, 이벤트를 붙인다.
+   ⚠️ 이 파일에 법령 문구나 조문 번호를 적지 말 것. 전부 content.js 로 간다. */
+
+/* ── 입력 ─────────────────────────────────────────────────── */
+const FIELDS = ['name', 'addr', 'date', 'ind', 'emp', 'hurt', 'ins', 'loss', 'memo'];
+/* 라디오는 name 과 id 접두사가 같다는 규칙을 지킨다: name="biz" → id="biz-corp" */
+const RADIOS = { role: 'role', biz: 'biz', tenure: 'ten' };
+
+function readForm() {
+  const d = {};
+  FIELDS.forEach((f) => { d[f] = $('#' + f).value; });
+  for (const name of Object.keys(RADIOS)) {
+    d[name] = document.querySelector(`input[name=${name}]:checked`).value;
+  }
+  return d;
+}
+function restoreForm(saved) {
+  if (!saved) return;
+  FIELDS.forEach((f) => { if (saved[f] != null) $('#' + f).value = saved[f]; });
+  for (const [name, prefix] of Object.entries(RADIOS)) {
+    const el = saved[name] && $(`#${prefix}-${saved[name]}`);
+    if (el) el.checked = true;
+  }
+}
+
+let done = store.get(STORE_KEYS.done) || {};
+
+/* ── 렌더 ─────────────────────────────────────────────────── */
+const TAGS = { must: '<span class="tag t-must">필수</span>', warn: '<span class="tag t-warn">주의</span>' };
+
+function stepHtml(it) {
+  const badge = TAGS[it.tag] || '';
+  return `<label class="step ${done[it.id] ? 'done' : ''}" for="c-${it.id}">`
+    + `<input type="checkbox" id="c-${it.id}" data-k="${it.id}" ${done[it.id] ? 'checked' : ''}>`
+    + `<span><strong>${esc(it.title)}${badge}</strong><p>${esc(it.body)}</p>`
+    + (it.where ? `<div class="where">발급·신청: ${esc(it.where)}</div>` : '')
+    + (it.due   ? `<div class="where due-hard">기한: ${esc(it.due)}</div>` : '')
+    + `</span></label>`;
+}
+function phaseHtml(ph, iso) {
+  const head = ph.day === null ? '기한<br>별도' : 'D+' + ph.day;
+  const when = ph.day === null ? '' : ' · ' + fmtFull(iso, ph.day);
+  return `<div class="phase"><div class="dday">${head}<small>${esc(ph.label)}${when}</small></div>`
+    + `<div class="steps">${ph.items.map(stepHtml).join('')}</div></div>`;
+}
+
+function renderSteps(d, phases) {
+  $('#stepsRole').textContent  = d.role === 'owner' ? '사업주용' : '다친 근로자용';
+  $('#stepsTitle').textContent = (d.name || '우리 사업장') + ' 처리 순서';
+  $('#phases').innerHTML = phases.map((ph) => phaseHtml(ph, d.date)).join('');
+
+  const boxes = $$('#phases input');
+  const n = boxes.filter((x) => x.checked).length;
+  $('#barFill').style.width = (boxes.length ? Math.round(n / boxes.length * 100) : 0) + '%';
+  $('#pct').textContent = `${n} / ${boxes.length} 완료`;
+}
+
+function renderDocs(d, ctx) {
+  $('#docRows').innerHTML = DOC_ROWS(ctx)
+    .map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+  $('#draft').textContent = [
+    '피해 경위서 (초안)', '',
+    `1. 사업장: ${d.name} / ${d.addr}`,
+    `2. 업종 및 규모: ${d.ind}, 상시 근로자 ${d.emp}명`,
+    `3. 발생 일시: ${fmtDateTime(d.date)}`,
+    `4. 경위: 위 일시에 사업장에서 화재가 발생하여 ${LOSS_TEXT[d.loss]}되었음.`,
+    `5. 피해 내용: ${d.memo}`,
+    `6. 인명 피해: ${ctx.hurt ? `부상자 ${d.hurt}명 (치료 중)` : '없음'}`,
+    `7. 보험 가입: ${INS_TEXT[d.ins]}`,
+    '8. 첨부: 화재증명원, 피해 사진, 피해 목록표', '',
+    `작성일: ${today()}`,
+    `작성자: ${d.name} 대표`,
+  ].join('\n');
+}
+
+function renderCare() {
+  $('#hosp').innerHTML = HOSPITALS.map(([name, addr, pill]) =>
+    `<div class="item"><div><strong>${esc(name)}</strong><p>${esc(addr)}</p></div>`
+    + `<span class="pill p-ok">${esc(pill)}</span></div>`).join('');
+}
+
+function renderSupport(d, ctx) {
+  $('#supLead').textContent = `${d.name} · 근로자 ${d.emp}명 · 보험 ${INS_SHORT[d.ins]} 기준으로 걸렀어요.`;
+  $('#sup').innerHTML = SUPPORT(ctx).map((s) =>
+    `<div class="item"><div><strong>${esc(s.t)}</strong><p>${esc(s.p)}</p></div>`
+    + `<span class="pill p-${s.pill}">${esc(s.label)}</span></div>`).join('');
+}
+
+function renderAdmin() {
+  $('#adminRows').innerHTML = ADMIN_ROWS.map(([name, loc, date, stage, note]) =>
+    `<tr><td>${esc(name)}</td><td>${esc(loc)}</td><td class="mono">${esc(date)}</td>`
+    + `<td><div class="stage">${[1,2,3,4,5,6].map((i) => `<i class="${i <= stage ? 'on' : ''}"></i>`).join('')}</div></td>`
+    + `<td>${esc(note)}</td></tr>`).join('');
+}
+
+function renderAll() {
+  const d = readForm();
+  const { ctx, phases } = planFor(d);
+  /* 근로자 화면에서 의미 없는 입력(사업자 유형·건물)을 CSS 로 감추기 위한 표식 */
+  document.documentElement.dataset.role = d.role;
+  $('#caseLabel').textContent = `${d.name || ''} · ${fmtShort(d.date)} 화재`;
+  renderSteps(d, phases);
+  renderDocs(d, ctx);
+  renderCare();
+  renderSupport(d, ctx);
+  renderAdmin();
+}
+
+/* ── 화면 전환 ─────────────────────────────────────────────── */
+const VIEWS = ['start', 'steps', 'docs', 'care', 'support', 'admin'];
+function show() {
+  let v = location.hash.slice(1);
+  if (!VIEWS.includes(v)) v = 'start';
+  VIEWS.forEach((x) => { $('#v-' + x).hidden = x !== v; });
+  $$('#nav a').forEach((a) =>
+    a.getAttribute('href') === '#' + v ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+  renderAll();
+  scrollTo(0, 0);
+}
+
+function toast(m) {
+  const t = $('#toast');
+  t.textContent = m; t.hidden = false;
+  clearTimeout(toast.h);
+  toast.h = setTimeout(() => { t.hidden = true; }, 1800);
+}
+
+/* ── 이벤트 ───────────────────────────────────────────────── */
+function save() { store.set(STORE_KEYS.form, readForm()); }
+
+$('#f').addEventListener('submit', (e) => { e.preventDefault(); save(); location.hash = 'steps'; });
+$('#f').addEventListener('input',  save);
+$('#f').addEventListener('change', () => { save(); renderAll(); });
+
+$('#phases').addEventListener('change', (e) => {
+  const k = e.target.dataset.k;
+  if (!k) return;
+  done[k] = e.target.checked;
+  store.set(STORE_KEYS.done, done);
+  renderAll();
+});
+
+$('#copy').addEventListener('click', () => {
+  const text = $('#draft').textContent;
+  navigator.clipboard.writeText(text).then(() => toast('복사했어요')).catch(() => {
+    const r = document.createRange();
+    r.selectNodeContents($('#draft'));
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    toast('텍스트를 선택했어요. 복사해 주세요');
+  });
+});
+
+/* 발표용. 발표 노트북이 다크여도 리허설과 같은 화면이 나오게 고정할 수 있다. */
+const THEMES = ['light', 'dark', ''];
+$('#theme').addEventListener('click', () => {
+  const cur  = document.documentElement.dataset.theme || '';
+  const next = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
+  if (next) document.documentElement.dataset.theme = next;
+  else delete document.documentElement.dataset.theme;
+  store.set(STORE_KEYS.theme, next);
+  toast(next === 'light' ? '밝은 화면' : next === 'dark' ? '어두운 화면' : '기기 설정 따름');
+});
+
+/* 리허설 체크 상태가 본 발표에 남지 않게 한다. */
+$('#reset').addEventListener('click', () => {
+  store.del(STORE_KEYS.form);
+  store.del(STORE_KEYS.done);
+  done = {};
+  location.hash = '';
+  location.reload();
+});
+
+addEventListener('hashchange', show);
+
+/* ── 시작 ─────────────────────────────────────────────────── */
+restoreForm(store.get(STORE_KEYS.form));
+const savedTheme = store.get(STORE_KEYS.theme);
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+show();
+
+</script>
