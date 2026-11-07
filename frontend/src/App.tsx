@@ -225,7 +225,26 @@ const vendors = [
   },
 ];
 
-const navRoutes: { route: Route; label: string; icon: string }[] = [
+/** 데모 기준 '1주 이내' 시작 가능 한도 (6월 14일) */
+const WEEK_LIMIT_DAY = 614;
+
+/** "6월 12일부터" → 612, "예약 가능" → 0(바로 가능), 날짜 없는 협의 항목 → Infinity */
+function availableDay(available: string) {
+  if (available.includes("예약 가능")) return 0;
+  const match = available.match(/(\d+)월\s*(\d+)일/);
+  return match ? Number(match[1]) * 100 + Number(match[2]) : Number.POSITIVE_INFINITY;
+}
+
+/** 업체 활동 지역이 필터 지역에 해당하는지. 비대면 상담은 모든 지역에 포함한다. */
+function vendorInRegion(area: string, region: string) {
+  if (area.includes("비대면")) return true;
+  if (region === "안산시") return area.includes("안산");
+  if (region === "시흥시") return area.includes("시흥");
+  if (region === "경기 서남부") return /안산|시흥|경기/.test(area);
+  return false;
+}
+
+const navRoutes:{ route: Route; label: string; icon: string }[] = [
   { route: "cases", label: "사건 목록", icon: "cases" },
   { route: "docs", label: "서류함", icon: "folder" },
   { route: "home", label: "홈", icon: "home" },
@@ -623,8 +642,11 @@ function App() {
   });
   const updateDraft = (patch: Partial<CaseDraft>) =>
     setCaseDraft((previous) => ({ ...previous, ...patch, dirty: true }));
-  const [filterRegions, setFilterRegions] = useState<string[]>(["안산시"]);
-  const [filterTiming, setFilterTiming] = useState("1주 이내");
+  // 업체 목록 필터 — 아무것도 선택하지 않으면 전체를 보여준다
+  const [filterRegions, setFilterRegions] = useState<string[]>([]);
+  const [filterTiming, setFilterTiming] = useState("");
+  const [sortFast, setSortFast] = useState(false);
+  const [categoryOnly, setCategoryOnly] = useState(true);
   const toggleIn = (list: string[], value: string) =>
     list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
   const fileInput = useRef<HTMLInputElement>(null);
@@ -787,15 +809,28 @@ function App() {
     const search = doc.name.toLowerCase().includes(query.toLowerCase());
     return category && search;
   });
-  const vendorResults = vendors.filter((vendor) => {
-    const matchesQuery =
-      !vendorQuery ||
-      vendor.name.includes(vendorQuery) ||
-      vendor.area.includes(vendorQuery) ||
-      vendor.category.includes(vendorQuery);
-    const matchesCategory = vendorEntry !== "category" || vendor.category === selectedCategory;
-    return matchesQuery && matchesCategory;
-  });
+  const ansanSiheung = ["안산시", "시흥시"];
+  const ansanSiheungOn = ansanSiheung.every((region) => filterRegions.includes(region));
+  const filtersActive = filterRegions.length > 0 || filterTiming !== "";
+  const vendorResults = vendors
+    .filter((vendor) => {
+      const matchesQuery =
+        !vendorQuery ||
+        vendor.name.includes(vendorQuery) ||
+        vendor.area.includes(vendorQuery) ||
+        vendor.category.includes(vendorQuery);
+      const matchesCategory =
+        vendorEntry !== "category" || !categoryOnly || vendor.category === selectedCategory;
+      const matchesRegion =
+        filterRegions.length === 0 ||
+        filterRegions.some((region) => vendorInRegion(vendor.area, region));
+      const day = availableDay(vendor.available);
+      const matchesTiming =
+        filterTiming === "" ||
+        (filterTiming === "1주 이내" ? day <= WEEK_LIMIT_DAY : !Number.isFinite(day) || day > WEEK_LIMIT_DAY);
+      return matchesQuery && matchesCategory && matchesRegion && matchesTiming;
+    })
+    .sort((a, b) => (sortFast ? availableDay(a.available) - availableDay(b.available) : 0));
 
   const publicRoutes: Route[] = ["landing", "login"];
   const detailRoutes: Route[] = [
@@ -1662,6 +1697,7 @@ function App() {
               className="category-cta"
               onClick={() => {
                 setVendorEntry("category");
+                setCategoryOnly(true);
                 setVendorQuery("");
                 go("vendors");
               }}
@@ -1737,11 +1773,58 @@ function App() {
               </div>
             </div>
             <div className="scroll-tabs filters">
-              {vendorEntry === "category" && <button className="active">{selectedCategory}</button>}
-              {vendorEntry !== "category" && <button className="active">전체 분야</button>}
-              <button>안산·시흥</button>
-              <button>일정 빠른 순</button>
-              <button onClick={() => setSheet("filter")}>필터</button>
+              {vendorEntry === "category" ? (
+                <button
+                  type="button"
+                  aria-pressed={categoryOnly}
+                  className={categoryOnly ? "active" : ""}
+                  onClick={() => setCategoryOnly((value) => !value)}
+                >
+                  {categoryOnly ? selectedCategory : "전체 분야"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-pressed={!filtersActive && !sortFast}
+                  className={!filtersActive && !sortFast ? "active" : ""}
+                  onClick={() => {
+                    setFilterRegions([]);
+                    setFilterTiming("");
+                    setSortFast(false);
+                  }}
+                >
+                  전체 분야
+                </button>
+              )}
+              <button
+                type="button"
+                aria-pressed={ansanSiheungOn}
+                className={ansanSiheungOn ? "active" : ""}
+                onClick={() =>
+                  setFilterRegions((previous) =>
+                    ansanSiheungOn
+                      ? previous.filter((region) => !ansanSiheung.includes(region))
+                      : [...new Set([...previous, ...ansanSiheung])],
+                  )
+                }
+              >
+                안산·시흥
+              </button>
+              <button
+                type="button"
+                aria-pressed={sortFast}
+                className={sortFast ? "active" : ""}
+                onClick={() => setSortFast((value) => !value)}
+              >
+                일정 빠른 순
+              </button>
+              <button
+                type="button"
+                className={filtersActive ? "active" : ""}
+                onClick={() => setSheet("filter")}
+              >
+                필터{filtersActive ? ` ${filterRegions.length + (filterTiming ? 1 : 0)}` : ""}
+              </button>
             </div>
             <div className="result-title">
               <span>
@@ -1751,11 +1834,13 @@ function App() {
               <small>실제 자격·평점은 확인되지 않았어요</small>
             </div>
             <div className="vendor-list">
-              {vendorResults.map((vendor, index) => (
+              {vendorResults.map((vendor) => (
                 <article className="vendor-card" key={vendor.name}>
                   <div className="vendor-top">
                     <span className="vendor-avatar">{vendor.name.slice(0, 1)}</span>
-                    <Badge tone={index === 1 ? "gray" : "brand"}>{vendor.available}</Badge>
+                    <Badge tone={Number.isFinite(availableDay(vendor.available)) ? "brand" : "gray"}>
+                      {vendor.available}
+                    </Badge>
                   </div>
                   <h2>
                     {vendor.name} <small>가상 업체</small>
@@ -2520,7 +2605,9 @@ function App() {
                           type="button"
                           aria-pressed={filterTiming === option}
                           className={`choice ${filterTiming === option ? "active" : ""}`}
-                          onClick={() => setFilterTiming(option)}
+                          onClick={() =>
+                            setFilterTiming((previous) => (previous === option ? "" : option))
+                          }
                         >
                           {option}
                         </button>
@@ -2531,7 +2618,7 @@ function App() {
                     className="primary-button"
                     onClick={() => {
                       setSheet(null);
-                      notify("필터를 적용했어요");
+                      notify(`필터를 적용했어요 · 예시 업체 ${vendorResults.length}곳`);
                     }}
                   >
                     결과 보기

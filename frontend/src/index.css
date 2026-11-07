@@ -73,7 +73,9 @@
     --brand-rgb: 195 62 62;
     --selection: #f4c8cb;
     position: relative;
-    width: min(100%, 390px);
+    /* Figma 프레임 402 × 874 기준. 내용 영역은 350px 유지 → 좌우 여백 (402 - 350) / 2 = 26px */
+    --gutter: 26px;
+    width: min(100%, 402px);
     height: 100dvh;
     min-height: 0;
     display: flex;
@@ -81,13 +83,49 @@
     background: #f6f7f9;
     overflow: hidden;
   }
+  /* PC 등 넓은 화면: 바깥 배경을 구분하고 휴대폰 프레임처럼 보여준다 */
+  @media (min-width: 600px) {
+    .app-stage {
+      align-items: center;
+      padding: 32px 24px;
+      background:
+        radial-gradient(circle at 20% 15%, rgb(255 255 255 / 0.55), transparent 45%),
+        #e9e5df;
+    }
+    /* 휴대폰 테두리: 화면(402 × 874)은 그대로 두고 바깥에 6px 테두리를 두른다 */
+    .phone-shell {
+      box-sizing: content-box;
+      width: 402px;
+      height: min(874px, calc(100dvh - 76px));
+      border: 6px solid #1d2126;
+      border-radius: 42px;
+      box-shadow:
+        0 0 0 1px #0d0f12,
+        inset 0 0 0 1px rgb(255 255 255 / 0.04),
+        0 30px 80px rgb(37 44 51 / 0.25);
+    }
+    /* 상단 카메라 알약 (상태바 가운데 빈 자리) */
+    .phone-shell::after {
+      content: "";
+      position: absolute;
+      z-index: 100;
+      top: 11px;
+      left: 50%;
+      width: 76px;
+      height: 22px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: #1d2126;
+      pointer-events: none;
+    }
+  }
   .screen {
     min-height: 0;
     flex: 1;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: none;
-    padding: 0 20px 96px;
+    padding: 0 var(--gutter) 96px;
     animation: screen-in 0.28s ease-out;
   }
   .screen::-webkit-scrollbar {
@@ -366,7 +404,7 @@
   .landing-art {
     position: relative;
     height: 270px;
-    margin: 4px -20px 0;
+    margin: 4px calc(var(--gutter) * -1) 0;
     overflow: hidden;
   }
   .sun {
@@ -567,7 +605,7 @@
   }
   .incident-card {
     width: 100%;
-    padding: 20px;
+    padding: 16px 20px;
     text-align: left;
     background: #fff;
     border: 1px solid #e5e9ee;
@@ -577,6 +615,8 @@
   .incident-list {
     display: grid;
     gap: 12px;
+    /* 카드 너비 350 → 334px */
+    padding: 0 8px;
   }
   .incident-card.current {
     border-color: var(--brand-edge);
@@ -592,7 +632,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 25px;
+    margin-bottom: 14px;
   }
   .incident-symbol {
     width: 39px;
@@ -617,7 +657,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin: 22px 0 10px;
+    margin: 14px 0 8px;
     color: #66727d;
     font-size: 12px;
   }
@@ -630,8 +670,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-top: 18px;
-    margin-top: 17px;
+    padding-top: 12px;
+    margin-top: 12px;
     border-top: 1px solid #edf0f3;
     color: #737e89;
     font-size: 12px;
@@ -781,7 +821,7 @@
     left: 0;
     bottom: 0;
     width: 100%;
-    padding: 12px 20px max(18px, env(safe-area-inset-bottom));
+    padding: 12px var(--gutter) max(18px, env(safe-area-inset-bottom));
     background: rgb(246 247 249 / 0.94);
     border-top: 1px solid #e5e9ee;
     backdrop-filter: blur(12px);
@@ -1645,8 +1685,8 @@
     background: transparent;
   }
   .filters {
-    margin: 12px -20px 0;
-    padding: 0 20px 6px;
+    margin: 12px calc(var(--gutter) * -1) 0;
+    padding: 0 var(--gutter) 6px;
   }
   .filters button.active {
     color: var(--brand-strong);
@@ -2005,8 +2045,8 @@
     font-weight: 600;
   }
   .progress-hero {
-    margin: 16px -20px 0;
-    padding: 27px 20px 24px;
+    margin: 16px calc(var(--gutter) * -1) 0;
+    padding: 27px var(--gutter) 24px;
     color: #fff;
     background: var(--brand);
   }
@@ -2214,8 +2254,8 @@
     justify-content: space-between;
   }
   .doc-tabs {
-    margin: 13px -20px 0;
-    padding: 0 20px 6px;
+    margin: 13px calc(var(--gutter) * -1) 0;
+    padding: 0 var(--gutter) 6px;
   }
   .document-card {
     padding: 15px;
@@ -2425,7 +2465,7 @@
     bottom: 0;
     width: 100%;
     max-height: 76%;
-    padding: 8px 20px max(24px, env(safe-area-inset-bottom));
+    padding: 8px var(--gutter) max(24px, env(safe-area-inset-bottom));
     overflow-y: auto;
     background: #fff;
     border-radius: 25px 25px 0 0;
