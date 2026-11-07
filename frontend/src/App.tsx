@@ -225,6 +225,23 @@ const vendors = [
   },
 ];
 
+/** '오늘 하루 보지 않기'를 누른 날짜(YYYY-MM-DD, 사용자 기기 시간 기준)를 저장한다 */
+const DEMOLITION_WARNING_KEY = "restart-demolition-warning-hidden-date";
+
+function todayString() {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function isDemolitionWarningHiddenToday() {
+  try {
+    return localStorage.getItem(DEMOLITION_WARNING_KEY) === todayString();
+  } catch {
+    return false;
+  }
+}
+
 /** 데모 기준 '1주 이내' 시작 가능 한도 (6월 14일) */
 const WEEK_LIMIT_DAY = 614;
 
@@ -642,6 +659,19 @@ function App() {
   });
   const updateDraft = (patch: Partial<CaseDraft>) =>
     setCaseDraft((previous) => ({ ...previous, ...patch, dirty: true }));
+  // 작업 분야 선택 시 철거 시점 경고 팝업
+  const [demolitionWarningOpen, setDemolitionWarningOpen] = useState(false);
+  const [hideWarningToday, setHideWarningToday] = useState(false);
+  const closeDemolitionWarning = () => {
+    if (hideWarningToday) {
+      try {
+        localStorage.setItem(DEMOLITION_WARNING_KEY, todayString());
+      } catch {
+        // 저장할 수 없으면 다음에 다시 보여준다
+      }
+    }
+    setDemolitionWarningOpen(false);
+  };
   // 업체 목록 필터 — 아무것도 선택하지 않으면 전체를 보여준다
   const [filterRegions, setFilterRegions] = useState<string[]>([]);
   const [filterTiming, setFilterTiming] = useState("");
@@ -1683,7 +1713,14 @@ function App() {
                 <button
                   className={selectedCategory === label ? "selected" : ""}
                   key={label}
-                  onClick={() => setSelectedCategory(label)}
+                  onClick={() => {
+                    setSelectedCategory(label);
+                    // 현장을 건드리는 복구 업체 분야를 고르면 철거 시점 경고를 띄운다
+                    if (index < 4 && !isDemolitionWarningHiddenToday()) {
+                      setHideWarningToday(false);
+                      setDemolitionWarningOpen(true);
+                    }
+                  }}
                 >
                   <span>
                     <b>{label}</b>
@@ -2625,6 +2662,54 @@ function App() {
                   </button>
                 </>
               )}
+            </section>
+          </>
+        )}
+        {demolitionWarningOpen && (
+          <>
+            <button
+              className="sheet-backdrop"
+              aria-label="경고 닫기"
+              onClick={closeDemolitionWarning}
+            />
+            <section
+              className="confirm-dialog warning-dialog"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="demolition-warning-title"
+            >
+              <span className="confirm-icon">
+                <Icon name="alert" size={21} />
+              </span>
+              <h2 id="demolition-warning-title">철거는 감식·손해사정이 끝난 뒤에</h2>
+              <p>업체를 부르기 전에 아래 두 가지를 먼저 확인해 주세요.</p>
+              <dl className="warning-basis">
+                <div>
+                  <dt>감식 전</dt>
+                  <dd>
+                    현장 훼손 금지
+                    <small>화재조사법 제8조·제21조</small>
+                  </dd>
+                </div>
+                <div>
+                  <dt>손해사정 전</dt>
+                  <dd>
+                    철거 시 보험금 삭감 위험
+                    <small>보험 손해 산정에 불리할 수 있어요</small>
+                  </dd>
+                </div>
+              </dl>
+              <label className="warning-check">
+                <input
+                  type="checkbox"
+                  checked={hideWarningToday}
+                  onChange={(e) => setHideWarningToday(e.target.checked)}
+                />
+                <span>오늘 하루 보지 않기</span>
+              </label>
+              <button className="primary-button" onClick={closeDemolitionWarning}>
+                확인했어요
+              </button>
             </section>
           </>
         )}
