@@ -792,6 +792,8 @@ function App() {
   };
   const activeTask = tasks.find((task) => task.id === taskId) || tasks[0];
   const completion = completed.length;
+  /** 복구 안내 순서 그대로, 아직 완료하지 않은 업무 */
+  const pendingTasks = tasks.filter((task) => !completed.includes(task.id));
 
   const addDoc = (name: string, error?: string) => {
     const extension = name.split(".").pop()?.toUpperCase() || "PDF";
@@ -1281,15 +1283,31 @@ function App() {
             )}
             {selectedIncident && (
               <>
-                <button className="priority-card" onClick={() => selectTask("first")}>
+                <button
+                  className="priority-card"
+                  onClick={() =>
+                    pendingTasks.length > 0 ? selectTask(pendingTasks[0].id) : go("guide")
+                  }
+                >
                   <span className="priority-eyebrow">오늘 확인할 일</span>
-                  <strong>
-                    놓치면 안 되는
-                    <br />
-                    업무가 3건 있어요
-                  </strong>
+                  {pendingTasks.length > 0 ? (
+                    <strong>
+                      놓치면 안 되는
+                      <br />
+                      업무가 {pendingTasks.length}건 있어요
+                    </strong>
+                  ) : (
+                    <strong>
+                      복구 안내의
+                      <br />
+                      모든 업무를 완료했어요
+                    </strong>
+                  )}
                   <span className="priority-link">
-                    가장 먼저 확인하기 <Icon name="arrow" size={18} />
+                    {pendingTasks.length > 0
+                      ? `${pendingTasks[0].title} 먼저 확인하기`
+                      : "복구 안내 보기"}{" "}
+                    <Icon name="arrow" size={18} />
                   </span>
                   <span className="priority-art">
                     <i />
@@ -1341,12 +1359,24 @@ function App() {
                     <h2>지금 확인할 업무</h2>
                   </div>
                   <div className="task-list compact">
-                    {tasks.slice(0, 3).map((task) => (
+                    {pendingTasks.length === 0 && (
+                      <button onClick={() => go("guide")}>
+                        <span className="task-dot" />
+                        <span>
+                          <strong>남은 업무가 없어요</strong>
+                          <small>복구 안내에서 완료 기록을 확인하세요</small>
+                        </span>
+                        <Icon name="chevron" size={18} />
+                      </button>
+                    )}
+                    {pendingTasks.map((task) => (
                       <button key={task.id} onClick={() => selectTask(task.id)}>
                         <span className="task-dot" />
                         <span>
                           <strong>{task.title}</strong>
-                          <small>{task.due}</small>
+                          <small>
+                            {task.step} · {task.due}
+                          </small>
                         </span>
                         <Icon name="chevron" size={18} />
                       </button>
@@ -2241,6 +2271,21 @@ function App() {
                 </div>
               </div>
             </section>
+            <div className="sticky-action">
+              <button
+                className="primary-button"
+                onClick={() => {
+                  // 견적 비교 → 작업 진행으로 쌓인 뒤로가기 기록을 비우고 복구 안내로 돌아간다
+                  setHistory([]);
+                  setGuideFilter("전체");
+                  setSheet(null);
+                  setRoute("guide");
+                  window.scrollTo(0, 0);
+                }}
+              >
+                복구 안내로 돌아가기
+              </button>
+            </div>
           </div>
         )}
 
